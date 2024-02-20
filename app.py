@@ -1,6 +1,12 @@
 # streamlit_app.py
 
 import streamlit as st
+from pandas.api.types import (
+    is_categorical_dtype,
+    is_datetime64_any_dtype,
+    is_numeric_dtype,
+    is_object_dtype,
+)
 import pandas as pd
 from sqlalchemy import create_engine
 from pyproj import Transformer
@@ -42,7 +48,8 @@ def get_combined_data():
         m.responsable, 
         m.coleccion, 
         m.información_contextual, 
-        m.publicaciones, 
+        m.publicaciones,
+        m.compilacion_fechados, 
         m.reporte, 
         m.detalle_muestra, 
         m.especimen, 
@@ -167,6 +174,7 @@ df_neworder = df_filtrado2[[
     "coleccion",
     "información_contextual",
     "publicaciones",
+    "compilacion_fechados",
     "reporte",
     "localidad",
     "comuna",
@@ -192,13 +200,88 @@ df_neworder = df_filtrado2[[
     "fecha_dc"
     ]]
 
+#Función para filtrar dataframe
+def filter_dataframe(df_renombrado: pd.DataFrame) -> pd.DataFrame:
+    """
+    Adds a UI on top of a dataframe to let viewers filter columns
+
+    Args:
+        df_renombrado (pd.DataFrame): Original dataframe
+
+    Returns:
+        pd.DataFrame: Filtered dataframe
+    """
+    #modify = st.checkbox("Add filters")
+
+    #if not modify:
+    #    return df_renombrado
+
+    df_filter = df_renombrado.copy()
+
+    # Try to convert datetimes into a standard format (datetime, no timezone)
+    for col in df_filter.columns:
+        if is_object_dtype(df_filter[col]):
+            try:
+                df_filter[col] = pd.to_datetime(df_filter[col])
+            except Exception:
+                pass
+
+        if is_datetime64_any_dtype(df_filter[col]):
+            df_filter[col] = df_filter[col].dt.tz_localize(None)
+
+    modification_container = st.container()
+
+    with modification_container:
+        to_filter_columns = st.multiselect("Filtrar Base de Datos según", df_filter.columns)
+        for column in to_filter_columns:
+            left, right = st.columns((1, 20))
+            if is_categorical_dtype(df_filter[column]) or df_filter[column].nunique() < 10:
+                user_cat_input = right.multiselect(
+                    f"Values for {column}",
+                    df_filter[column].unique(),
+                    default=list(df_filter[column].unique()),
+                )
+                df_filter = df_filter[df_filter[column].isin(user_cat_input)]
+            elif is_numeric_dtype(df_filter[column]):
+                _min = float(df_filter[column].min())
+                _max = float(df_filter[column].max())
+                step = (_max - _min) / 100
+                user_num_input = right.slider(
+                    f"Values for {column}",
+                    min_value=_min,
+                    max_value=_max,
+                    value=(_min, _max),
+                    step=step,
+                )
+                df_filter = df_filter[df_filter[column].between(*user_num_input)]
+            elif is_datetime64_any_dtype(df_filter[column]):
+                user_date_input = right.date_input(
+                    f"Values for {column}",
+                    value=(
+                        df_filter[column].min(),
+                        df_filter[column].max(),
+                    ),
+                )
+                if len(user_date_input) == 2:
+                    user_date_input = tuple(map(pd.to_datetime, user_date_input))
+                    start_date, end_date = user_date_input
+                    df_filter = df_filter.loc[df_filter[column].between(start_date, end_date)]
+            else:
+                user_text_input = right.text_input(
+                    f"Substring or regex in {column}",
+                )
+                if user_text_input:
+                    df_filter = df_filter[df_filter[column].astype(str).str.contains(user_text_input)]
+
+    return df_filter
+
 # Creación de la interfaz de usuario con Streamlit
 def main():
     with st.container():
         st.title('Visualización de Fechados Arqueológicos')
         st.write("El Proyecto ArqueoCronoChile (ACC) tiene como objetivo...")
     with st.container():
-        st.title('Aquí se muestran los datos cargados desde la base de datos PostgreSQL:')
+        st.title('Base de datos de Fechados Completa:')
        
         # Visualizacion
         df_renombrado = df_neworder.rename(columns={
@@ -221,6 +304,7 @@ def main():
             'coleccion': 'Colección',
             'información_contextual': 'Información Contextual',
             'publicaciones': 'Publicaciones',
+            'compilacion_fechados': "Compilación de Fechado",
             'reporte': 'Reporte',
             'localidad': 'Localidad',
             'comuna': 'Comuna',
@@ -246,6 +330,12 @@ def main():
             })
         st.dataframe(df_renombrado)
 
+        st.divider()
+
+        st.title('Filtrar Base de Datos')
+        st.dataframe(filter_dataframe(df_renombrado))
+
+
     st.divider()
 
     with st.container():
@@ -255,10 +345,11 @@ def main():
         location = df[['lat', 'lon']]
         location_list = location.to_dict('records')
         filtered_location_list = [item for item in location_list if not (item['lat'] == float('inf') or item['lon'] == float('inf'))]
-        for ubicacion in filtered_location_list:
-            punto = ubicacion['lat'], ubicacion['lon']
-            folium.Marker(punto).add_to(map)
-        st_folium(map)
+        #Usando Folium
+        #for ubicacion in filtered_location_list:
+        #   punto = ubicacion['lat'], ubicacion['lon']
+        #   folium.Marker(punto).add_to(map)
+        #st_folium(map)
         st.map(filtered_location_list)
     
     st.divider()
@@ -268,7 +359,7 @@ def main():
         st.title("Análisis de básico de Base de Datos")
         columns = df_neworder.columns.tolist()
         s = df_neworder["tipo_fechado"].str.strip().value_counts()
-
+        
         with st.container():
             st.write("---")
             col1, col2 = st.columns(2)
