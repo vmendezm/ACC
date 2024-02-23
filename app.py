@@ -279,7 +279,15 @@ def filter_dataframe(df_renombrado: pd.DataFrame) -> pd.DataFrame:
 def main():
     with st.container():
         st.title('Visualización de Fechados Arqueológicos')
-        st.write("El Proyecto ArqueoCronoChile (ACC) tiene como objetivo...")
+        st.write("""
+                El Proyecto ArqueoCronoChile (ACC) tiene como principal objetivo el reunir, sistematizar y publicar abiertamente dataciones sobre materiales arqueológicos en el territorio Chileno. 
+                Este trabajo se fundamenta en dos ejes: 
+                1. Todo material arqueológico es patrimonio que es destruido al ser datado. Por ello, los resultados del análisis éticamente deben ser compartidos lo más abiertamente posible con la sociedad que sustenta tal patrimonio.
+                2. Las dataciones son un elemento central dentro de la investigación arqueológica, sin embargo, al contrario de esta importancia, se encuentra desarticulada en la literatura (salvo algunos casos particulares) sin normas específicas para el correcto reporte y evaluación de los resultados.
+                Bajo estos argumentos, nos proponemos contribuir al desarrollo de buenas prácticas en el reporte de las dataciones a la vez que generamos una amplia base de datos pública y abierta a la comunidad.
+
+                Esta iniciativa está siendo desarrollada por la Dr. Francisca Santana Sagredo, el Dr. Roberto Campbell Toro y el Mg. Víctor Méndez Muñoz. 
+                """)
     with st.container():
         st.title('Base de datos de Fechados Completa:')
        
